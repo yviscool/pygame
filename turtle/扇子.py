@@ -1,0 +1,21 @@
+from turtle import *
+# speed()
+forward(400)
+left(90)
+fillcolor('red')
+begin_fill()
+circle(200,180)
+end_fill()
+left(90)
+forward(200)
+for i in range(17):
+    left(10)
+    pencolor('yellow')
+    forward(200)
+    backward(200)
+left(100)
+pensize(10)
+pencolor('red')
+forward(100)
+
+done()
