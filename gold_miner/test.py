@@ -32,21 +32,30 @@ pygame.mixer.music.play(-1, 0.0, 5000)
 # 4 游戏
 scene = 0
 # 当前 level
-level = 13
+level = 1
 # level 对应的分数
 money_goal=[1000,2200,3600,5400,7500,10000,12500,17000,21500,26000,30000,45000]
-
+# 玩家金钱
+money=0
 # 摆动的角度 从 -70 到 70
 degree = -70
 # 绳子长度
 chain_distance = 30
 # 绳子增加速度
 speed = 5
+# 物品拉回来的时候停留时间
 popped_up_word_counterdown = 16
 # 绳子摆动方向
 direction_left_to_right=True
 # 拉扯物体的重量
 weight_item_caught = speed + 5
+# 抓取物品的价值
+value_caught = 0
+
+# 倒计时
+counter = 0
+# 倒计时毫秒数
+counter_time = None
 
 
 item_lamp = False
@@ -72,7 +81,9 @@ gold_random_big = pygame.sprite.Group()
 catch_gold_group = pygame.sprite.Group()
 
 # 字体
-font = pygame.font.SysFont('microsoftyaheimicrosoftyaheiui', 30)
+yahei_font40 = pygame.font.SysFont('microsoftyaheimicrosoftyaheiui', 40)
+yahei_font30 = pygame.font.SysFont('microsoftyaheimicrosoftyaheiui', 30)
+yahei_font20 = pygame.font.SysFont('microsoftyaheimicrosoftyaheiui', 20)
 
 
 # 绘制文本
@@ -101,7 +112,8 @@ picture_list=[
     # "picture/Starting screen.png",
     "picture/starting_screen.png",
     "picture/shop.png",
-    "picture/intro.png"
+    "picture/intro.png",
+    'picture/restart_btn.png',
 ]
 
 item_picture_list = [
@@ -283,49 +295,57 @@ class Chainhead(Sprite):
 
     def update(self):
 
-        global chain_thrown_out_away, weight_item_caught, speed, chain_thrown_out_catchsomething
+        global chain_thrown_out_away, weight_item_caught, speed, value_caught, chain_thrown_out_catchsomething
 
         if chain_thrown_out_catchsomething == False:
 
             if pygame.sprite.spritecollide(self, gold_middle, True):
                 chain_thrown_out_away = False
                 chain_thrown_out_catchsomething = True
-                weight_item_caught = speed - 2
+                weight_item_caught = speed - 3
+                value_caught = 200
                 self.pick_type = 'gold_middle'
 
             if pygame.sprite.spritecollide(self, gold_small, True):
                 chain_thrown_out_away = False
                 chain_thrown_out_catchsomething = True
-                weight_item_caught = speed
+                weight_item_caught = speed - 1
+                value_caught = 75
                 self.pick_type = 'gold_small'
 
             if pygame.sprite.spritecollide(self, gold_large, True):
                 chain_thrown_out_away = False
                 chain_thrown_out_catchsomething = True
-                weight_item_caught = speed - 4
+                weight_item_caught = speed - 5
+                value_caught = 500
                 self.pick_type = 'gold_big'
 
             if pygame.sprite.spritecollide(self, gold_diamond, True):
                 chain_thrown_out_away = False
                 chain_thrown_out_catchsomething = True
                 weight_item_caught = speed + 4
+                value_caught = 600 + 50 * level
                 self.pick_type = 'diamond'
 
             if pygame.sprite.spritecollide(self, gold_small_rock, True):
                 chain_thrown_out_away = False
                 chain_thrown_out_catchsomething = True
-                weight_item_caught = speed - 2
+                weight_item_caught = speed - 3
+                value_caught = 20
                 self.pick_type = 'rock_small'
 
             if pygame.sprite.spritecollide(self, gold_big_rock, True):
                 chain_thrown_out_away = False
                 chain_thrown_out_catchsomething = True
                 weight_item_caught = speed - 4
+                value_caught = 60
                 self.pick_type = 'rock_big'
 
             if pygame.sprite.spritecollide(self, gold_random_big, True):
                 chain_thrown_out_away = False
                 chain_thrown_out_catchsomething = True
+                weight_item_caught = speed + random.randint(-4, 5)
+                value_caught = random.randint(-300, 700)
                 self.pick_type = 'mystery_bag'
 
 
@@ -473,9 +493,55 @@ class Button():
         return action
 
 
+# 显示 当前关卡目标分数, 当前金额, 剩余时间等信息
+def show_info():
+
+    global value_caught
+
+    draw_text(f'关卡:{level} 目标分数: {money_goal[level-1]}' , yahei_font30, 'white', 650, 85)
+    draw_text(f'当前金额: {money}' , yahei_font20, 'yellow', 60, 18)
+    draw_text(f'剩余时间: {counter}' , yahei_font20, 'black', 60, 44)
+
+
+    # 当抓到物品到达目标点的时候 value_caught !=0 , popped_up_word_counterdown 从 1 开始增加,
+    if popped_up_word_counterdown <= 15:
+        if value_caught > 0:
+            draw_text(f'+{value_caught}' , yahei_font30, 'green', 270, 20)
+        else:
+            draw_text(f'-{value_caught}' , yahei_font30, 'red', 270, 20)
+    # 金钱显示 popped_up_word_counterdown 1-15 时候, 重置抓取物品价格
+    elif popped_up_word_counterdown == 16:
+        value_caught = 0
+
+
+# 倒计时
+def countdown():
+
+    global counter, counter_time, scene, level
+
+    one_second = 1000
+
+    if counter == 0:
+
+        if money < money_goal[level - 1]:
+            scene = 4
+            return None
+        else:
+            level += 1
+            if level > 12:
+                level = 0
+            level_generation(level)
+
+    if pygame.time.get_ticks() - counter_time > one_second:
+        counter_time = pygame.time.get_ticks()
+        counter -= 1
+
+
+
+# 生成关卡
 def level_generation(level):
 
-    global counter, gold_small_rock ,gold_large, gold_middle, gold_small, gold_random_big, gold_diamond, gold_big_rock
+    global counter, counter_time, gold_small_rock ,gold_large, gold_middle, gold_small, gold_random_big, gold_diamond, gold_big_rock
     # 小黄金
     gold_small.empty()
     # 中黄金
@@ -493,9 +559,11 @@ def level_generation(level):
 
     # item evaluation
     if item_time == True:
-        counter = 1200
+        counter = 80
     else:
-        counter = 900
+        counter = 60
+
+    counter_time = pygame.time.get_ticks()
 
     if item_lamp == True:
         no_diamond = 3
@@ -689,6 +757,43 @@ def level_generation(level):
         gold_diamond.add(item)
 
 
+    # 生成随机袋子
+    for c in range(0, random.randint(base, no_random)):
+        touched = True
+        while touched:
+            item = Gold(
+                'mystery_bag',
+                random.randint(50, 950),
+                random.randint(200, 690),
+            )
+
+            touched = False
+
+            for i in gold_small:
+                if item.touches(i):
+                    touched = True
+            for i in gold_small_rock:
+                if item.touches(i):
+                    touched = True
+            for i in gold_middle:
+                if item.touches(i):
+                    touched = True
+            for i in gold_big_rock:
+                if item.touches(i):
+                    touched = True
+            for i in gold_large:
+                if item.touches(i):
+                    touched = True
+            for i in gold_diamond:
+                if item.touches(i):
+                    touched = True
+            for i in gold_random_big:
+                if item.touches(i):
+                    touched = True
+
+        gold_random_big.add(item)
+
+
 chainhead = Chainhead(240, 546, )
 
 chainhead_group = pygame.sprite.Group()
@@ -707,8 +812,12 @@ start_button_sf.set_alpha(0)                # alpha level 透明度
 # start_button_sf.fill((255,255,255))
 start_button = Button(335, 200, start_button_sf)
 
+
+restart_button = Button(SCREEN_WIDTH//2-100, SCREEN_HEIGHT//2, pygame.image.load(picture_list[-1]), 2)
+
 # print(pygame.font.get_fonts())
 run = True
+key_n_clicked = False
 
 while run:
 
@@ -717,7 +826,7 @@ while run:
     # 背景颜色
     screen.fill('grey')
 
-    # 场景一
+    # 场景一  开始界面
     if scene == 0:
         # screen.blit(bg, (106, 22.5))
         # 背景图片
@@ -728,7 +837,7 @@ while run:
         # 提示
         draw_text(
             '按下空格键开始',
-            font,
+            yahei_font30,
             'red',
             350,
             500,
@@ -753,7 +862,7 @@ while run:
 
 
 
-    # 场景二
+    # 场景二 游戏
     if scene == 2:
 
         screen.blit(head_img, (0, 0, ))
@@ -762,7 +871,7 @@ while run:
             500 - machine_img.get_width() /2,
             37.5 - machine_img.get_width() /2 + 15,
         ))
-        screen.blit(body_img, (2, 85, ))
+        screen.blit(body_img, (2, 85))
 
         key = pygame.key.get_pressed()
 
@@ -770,12 +879,11 @@ while run:
 
             character.update_action(0)
 
-            # if popped_up_word_counterdown >= 16:
-
-            if direction_left_to_right:
-                degree += 1.5
-            else:
-                degree -= 1.5
+            if popped_up_word_counterdown >= 16:
+                if direction_left_to_right:
+                    degree += 1.5
+                else:
+                    degree -= 1.5
 
             if degree <= -70:
                 direction_left_to_right = True
@@ -790,14 +898,14 @@ while run:
             #      500 + math.sin(degree/57.29) * 75,
             #      75 + math.cos(degree/57.29) * 75
             # )
-
+            # 绳子的头部
             pos = (
                  500 + math.sin(math.radians(degree)) * 75,
                  75  + math.cos(math.radians(degree)) * 75
             )
 
             chainhead.rect.center = pos
-
+            # 绳子
             for i in range(0, 25):
                 pos = (
                      500 + math.sin(math.radians(degree)) * 2.5 * i ,
@@ -812,24 +920,25 @@ while run:
 
 
         # 按下向下键时,  改变对应状态
-        if key[pygame.K_DOWN] and chain_thrown_out == False and popped_up_word_counterdown >= 16:
+        if (key[pygame.K_DOWN] or key[pygame.K_s]) and chain_thrown_out == False and popped_up_word_counterdown >= 16:
             chain_thrown_out = True
             chain_thrown_out_away = True
             chain_thrown_out_catchsomething = False
             chain_distance = 30
 
         # 按下向上按键时候,  爆破物品
-        if key[pygame.K_UP] and chain_thrown_out_catchsomething:
+        if (key[pygame.K_UP] or key[pygame.K_w]) and chain_thrown_out_catchsomething:
             chain_thrown_out_catchsomething = False
             weight_item_caught = speed + 5
             boom = Boom(chainhead.rect.centerx, chainhead.rect.centery)
             boom_group.add(boom)
             catch_gold_group.empty()
 
-#       # 绳子抛出动画
+        # 绳子抛出动画
         if chain_thrown_out and chain_thrown_out_away:
 
-            chain_distance += speed
+            # chain_distance += speed
+            chain_distance += speed - 3
 
             for i in range(1, chain_distance):
                 pos = (
@@ -847,7 +956,7 @@ while run:
                 70  + math.cos(math.radians(degree)) * (10 + 2.5 * chain_distance),
             )
 
-#       # 绳子回来动画
+        # 绳子回来动画
         if chain_thrown_out and chain_thrown_out_away == False:
 
             chain_distance -= weight_item_caught
@@ -878,15 +987,26 @@ while run:
             # 绳子抓到东西的时候, 取消抓到东西
             if chain_thrown_out_catchsomething:
                 chain_thrown_out_catchsomething = False
+                # 找到东西的时候 增加金钱
+                if value_caught != 0:
+                    popped_up_word_counterdown = 1
+                money += value_caught
             chain_thrown_out = False
             weight_item_caught = speed + 5
+
 
         # print(chain_thrown_out_catchsomething, '1')
 
         if chain_thrown_out:
             character.update_action(1)
 
+
         popped_up_word_counterdown += 1
+
+        # 显示游戏信息
+        show_info()
+        # 倒计时
+        countdown()
 
 
         character_group.update()
@@ -917,9 +1037,30 @@ while run:
         catch_gold_group.draw(screen)
         boom_group.draw(screen)
 
+
+    # 场景四 游戏失败画面
+    if scene == 4:
+
+        draw_text('GAME OVER!', yahei_font40, 'white', int(SCREEN_HEIGHT/2+48), int(SCREEN_HEIGHT/2-60))
+        if restart_button.draw(screen):
+            level_generation(1)
+            scene = 2
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
+        if event.type == pygame.KEYDOWN and not key_n_clicked:
+            if event.key == pygame.K_n:
+                level += 1
+                if level > 12:
+                    level = 0
+                level_generation(level)
+                key_n_clicked = True
+        # keyboard button released
+        if event.type == pygame.KEYUP:
+            if event.key == pygame.K_n:
+                key_n_clicked = False
+
 
     pygame.display.update()
 
