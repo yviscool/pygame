@@ -1,3 +1,6 @@
+'''
+游戏 https://u.ali213.net/games/doNotTouchWhite/index.html?game_code=181
+'''
 import pygame
 import random
 
@@ -32,23 +35,32 @@ run = True
 game_over = 0
 
 # 常量
+# 边框长度
 BORDER = 1
 
 # 颜色
-BLACK = (0, 0, 0)
-RED = (255, 0, 0)
-WHITE = (255, 255, 255)
-GREY = (51, 51, 51)
+BLACK      = (0, 0, 0)
+RED        = (255, 0, 0)
+WHITE      = (255, 255, 255)
+GREY       = (51, 51, 51)
 WHITE_GREY = (204, 204, 204)
-GOLD = (255, 255, 0)
+GOLD       = (255, 255, 0)
 
+# 游戏模式
+MODE_CLASSIC   = 1   # 经典
+MODE_ATHLETICS = 2   # 街机 竞技
+MODE_DHYANA    = 3   # 禅
+MODE_FASTEST   = 4   # 极速
+MODE_RELEVOS   = 5   # 接力
+MODE_RANK      = 6   # 排行榜
 
-BLOCKS_TYPE_FAILURE = -1
-BLOCKS_TYPE_COMMON = 0
+# 游戏砖块
+BLOCKS_TYPE_FAILURE   = -1
+BLOCKS_TYPE_COMMON    = 0
 BLOCKS_TYPE_CLICKABLE = 1
-BLOCKS_TYPE_CLICKED = 2
-BLOCKS_TYPE_GOLD = 3
-BLOCKS_TYPE_START = 4
+BLOCKS_TYPE_CLICKED   = 2
+BLOCKS_TYPE_GOLD      = 3
+BLOCKS_TYPE_START     = 4
 # -1 代表红色(失败)
 # 0 代表白色(不可点击-否则失败)\
 # 1 代表灰色(可点击)
@@ -75,8 +87,8 @@ select_markers = [
 ]
 
 # 微软雅黑粗体 44 大小
-yahei44 = pygame.font.SysFont('microsoftjhengheiui', 44, bold=True)
-yahei50 = pygame.font.SysFont('microsoftjhengheiui', 50)
+yahei44      = pygame.font.SysFont('microsoftjhengheiui', 44, bold=True)
+yahei50      = pygame.font.SysFont('microsoftjhengheiui', 50)
 yahei60_bold = pygame.font.SysFont('microsoftjhengheiui', 60, bold=True)
 
 # print(pygame.font.get_fonts())
@@ -96,6 +108,41 @@ def draw_grid():
 	for i in range(5):
 		pygame.draw.line(screen, BLACK, ( 0,  i*225 ),( WIDTH, i*225), BORDER)
 		pygame.draw.line(screen, BLACK, ( i*160, 0 ),( i*160, HEIGHT), BORDER)
+	# pygame.draw.line(screen, BLACK, (0, 225), (WIDTH, 225), BORDER)
+	# pygame.draw.line(screen, BLACK, (0, 450), (WIDTH, 450), BORDER)
+	# pygame.draw.line(screen, BLACK, (0, 675), (WIDTH, 675), BORDER)
+
+	# pygame.draw.line(screen, BLACK, (160, 0), (160, HEIGHT), BORDER)
+	# pygame.draw.line(screen, BLACK, (320, 0), (320, HEIGHT), BORDER)
+	# pygame.draw.line(screen, BLACK, (480, 0), (480, HEIGHT), BORDER)
+
+class Mode:
+
+	def __init__(self, types):
+
+		# 经典
+		if types == MODE_CLASSIC:
+			self.txt = '经典'
+
+		# 街机 竞技
+		if types == MODE_ATHLETICS:
+			self.txt = '禅'
+
+		# 禅
+		if types == MODE_DHYANA:
+			self.txt = '接力'
+
+		# 极速
+		if types == MODE_FASTEST:
+			self.txt = '街机(竞技)'
+
+		# 接力
+		if types == MODE_RELEVOS:
+			self.txt = '极速'
+
+		# 排行榜
+		if types == MODE_RANK:
+			self.txt = '排行榜kk'
 
 # 游戏按钮
 class Button:
@@ -148,7 +195,6 @@ class Button:
 
 		self.reverse = False # 动画是否反转 , 选择和开始的时候
 
-
 	def draw(self):
 
 		# 绘制色块
@@ -170,8 +216,6 @@ class Button:
 		self.click()
 
 	def move(self):
-
-		global step
 
 		now = pygame.time.get_ticks()
 
@@ -200,7 +244,6 @@ class Button:
 						if self.rect.x <= -320:
 							self.rect.x = -320
 							self.speed  = 0
-							step = 1
 					# 向左
 					if direction == 1:
 						if self.rect.x >= 640:
@@ -208,6 +251,8 @@ class Button:
 							self.speed  = 0
 
 	def click(self):
+
+		global step
 
 		pos = pygame.mouse.get_pos()
 
@@ -231,10 +276,11 @@ class Button:
 			else:
 				self.start = 800
 
+			step = 1
+
 			if self.rect.x // self.w == pos[0] // self.w \
 				and self.rect.y // self.h == pos[1] // self.h:
 				print('点击了')
-
 
 # 游戏色块
 class Block:
@@ -255,7 +301,6 @@ class Block:
 		self.w = 0
 		self.h = 0
 		self.front_color = None
-
 
 	def get_color(self, types):
 		# -1 代表红色(失败)
@@ -326,7 +371,8 @@ class Block:
 				self.move = False
 				self.limit = 0
 
-class World:
+# 游戏
+class Game:
 
 	def __init__(self):
 
@@ -350,7 +396,7 @@ class World:
 		# ]
 		#   0   1  2  3  4
 
-		W = WIDTH // 4
+		W = WIDTH  // 4
 		H = HEIGHT // 4
 
 		# 会产生四个黑块
@@ -376,10 +422,10 @@ class World:
 
 				self.blocks.append(block)
 
+	# 选择按钮
+	def init_buttons(self):
 
-	def init_select_block(self):
-
-		W = WIDTH // 2
+		W = WIDTH  // 2
 		H = HEIGHT // 3
 
 		for y_i, y in enumerate(select_markers):
@@ -393,10 +439,44 @@ class World:
 
 				self.buttons.append(b)
 
+	# 运行
+	def run(self):
+		self.draw()
+		self.update()
+
+	# 绘制
 	def draw(self):
 
-		for block in self.blocks:
-			block.draw(self.clicked)
+		# 绘制背景
+		self.draw_background()
+
+		# 绘制砖块
+		if step == 1:
+			self.draw_blocks()
+
+		# 绘制按钮
+		self.draw_buttons()
+
+
+	# 绘制背景
+	def draw_background(self):
+
+		if step == 0:
+			screen.fill(BLACK)
+		else:
+			screen.fill(WHITE)
+
+	# 绘制按钮
+	def draw_buttons(self):
+		for b in self.buttons:
+			b.draw()
+			b.update()
+
+	# 绘制砖块
+	def draw_blocks(self):
+
+		for b in self.blocks:
+			b.draw(self.time)
 
 		# 倒计时
 		counter = '0.000"'
@@ -407,6 +487,7 @@ class World:
 
 			counter = '{:.3f}'.format(round((now-self.time)/1000, 3)) + '"'
 
+		# 绘制倒计时
 		draw_text(
 			counter,
 			yahei50,
@@ -416,8 +497,15 @@ class World:
 			True
 		)
 
-
+	# 更新
 	def update(self):
+
+		# 处理点击
+		pos = self.click()
+
+
+
+	def click(self):
 
 		# 获取鼠标位置
 		pos = pygame.mouse.get_pos()
@@ -431,13 +519,15 @@ class World:
 
 			self.clicked = True
 
-			if not self.time:
-				self.time = pygame.time.get_ticks()
 
 			for block in self.blocks:
-				# block.update(pos)
+
 				# 判断是否被点击了，是的话 全部都要移动
 				if pos[1] // 225 == 2:
+
+					# 倒计时条件
+					if not self.time:
+						self.time = pygame.time.get_ticks()
 
 					# 判断哪个块是否被点击了
 					if block.rect.x // 160  == pos[0] // 160 \
@@ -450,6 +540,53 @@ class World:
 							block.get_color(-1)
 
 					block.move = True
+
+		for block in self.blocks:
+
+			block.update()
+
+			# 越界判断
+			if block.rect.y > HEIGHT - 10:
+				self.blocks.remove(block)
+
+		# 当最后一排色块被移除时候, 要补充最前面的砖块
+		if len(self.blocks) < 20:
+
+			i = random.choice([0, 1, 3, 4])
+
+			for x in range(0, 640, 160):
+				# 0 160 320 480
+				if x // 100 == i:
+					block = Block(BLOCKS_TYPE_CLICKABLE, x, -225)
+				else:
+					block = Block(BLOCKS_TYPE_COMMON, x, -225)
+
+				self.blocks.append(block)
+
+
+
+	def update_block(self, pos):
+
+
+		if not self.time:
+			self.time = pygame.time.get_ticks()
+
+		for block in self.blocks:
+
+			# 判断是否被点击了，是的话 全部都要移动
+			if pos[1] // 225 == 2:
+
+				# 判断哪个块是否被点击了
+				if block.rect.x // 160  == pos[0] // 160 \
+					and block.rect.y // 225 == pos[1] // 225:
+
+					if block.color == GREY:
+						shot_fx.play()
+						block.get_color(2)
+					else:
+						block.get_color(-1)
+
+				block.move = True
 
 		for block in self.blocks:
 
@@ -475,11 +612,10 @@ class World:
 					self.blocks.append(block)
 
 
+game = Game()
 
-world = World()
-
-world.init_block()
-world.init_select_block()
+game.init_block()
+game.init_buttons()
 
 # 0 选择 1 游戏
 step = 0
@@ -488,29 +624,8 @@ while run:
 
 	clock.tick(FPS)
 
-	# pygame.draw.line(screen, BLACK, (0, 225), (WIDTH, 225), BORDER)
-	# pygame.draw.line(screen, BLACK, (0, 450), (WIDTH, 450), BORDER)
-	# pygame.draw.line(screen, BLACK, (0, 675), (WIDTH, 675), BORDER)
+	game.run()
 
-	# pygame.draw.line(screen, BLACK, (160, 0), (160, HEIGHT), BORDER)
-	# pygame.draw.line(screen, BLACK, (320, 0), (320, HEIGHT), BORDER)
-	# pygame.draw.line(screen, BLACK, (480, 0), (480, HEIGHT), BORDER)
-	if step == 0:
-		screen.fill(BLACK)
-	else:
-		screen.fill(WHITE)
-
-
-	if step == 1:
-		if game_over == 0:
-			world.draw()
-			world.update()
-
-	for b in world.buttons:
-		b.draw()
-		b.update()
-
-	# draw_grid()
 	# draw_text(str(round(pygame.time.get_ticks()/10000, 2)), yahei44, RED, WIDTH//2, 50, True)
 	for event in pygame.event.get():
 
