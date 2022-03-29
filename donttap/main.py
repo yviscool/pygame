@@ -33,6 +33,8 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 run = True
 # 游戏结束  0 进行  1 胜利  -1 失败
 game_over = 0
+# 0 选择 1 游戏
+step = 0
 
 # 常量
 # 边框长度
@@ -87,9 +89,11 @@ select_markers = [
 ]
 
 # 微软雅黑粗体 44 大小
-yahei44      = pygame.font.SysFont('microsoftjhengheiui', 44, bold=True)
-yahei50      = pygame.font.SysFont('microsoftjhengheiui', 50)
-yahei60_bold = pygame.font.SysFont('microsoftjhengheiui', 60, bold=True)
+yahei44       = pygame.font.SysFont('microsoftjhengheiui', 44, bold=True)
+yahei50_bold  = pygame.font.SysFont('microsoftjhengheiui', 50, bold=True)
+yahei60_bold  = pygame.font.SysFont('microsoftjhengheiui', 60, bold=True)
+yahei80_bold  = pygame.font.SysFont('microsoftjhengheiui', 80, bold=True)
+yahei100_bold = pygame.font.SysFont('microsoftjhengheiui', 100, bold=True)
 
 # print(pygame.font.get_fonts())
 
@@ -115,6 +119,58 @@ def draw_grid():
 	# pygame.draw.line(screen, BLACK, (160, 0), (160, HEIGHT), BORDER)
 	# pygame.draw.line(screen, BLACK, (320, 0), (320, HEIGHT), BORDER)
 	# pygame.draw.line(screen, BLACK, (480, 0), (480, HEIGHT), BORDER)
+
+class Prompt:
+
+	def __init__(self, text, time):
+
+		self.txt = text + str('模式')
+
+		self.time = time
+
+		return_img = yahei60_bold.render('返回', True, WHITE)
+		return_rect = return_img.get_rect()
+		return_rect.center = (WIDTH//2-100, 750)
+
+		agang_img = yahei60_bold.render('重来', True, WHITE)
+		again_rect = agang_img.get_rect()
+		again_rect.center = (WIDTH//2+100, 750)
+
+		self.return_btn = [return_img, return_rect]
+		self.again_btn  = [agang_img, again_rect]
+
+		self.return_clicked = False
+		self.again_clicked = False
+
+	def draw(self):
+
+		screen.fill(RED)
+		draw_text(self.txt, yahei80_bold, WHITE, WIDTH//2, 200, True)
+
+		draw_text('败了!', yahei100_bold, BLACK, WIDTH//2, 400, True)
+
+		draw_text(self.time, yahei60_bold, BLACK, WIDTH//2, 600, True)
+
+		screen.blit(self.return_btn[0], self.return_btn[1])
+		screen.blit(self.again_btn[0], self.again_btn[1])
+
+	def update(self):
+
+		pos = pygame.mouse.get_pos()
+
+		if self.return_btn[1].collidepoint(pos):
+			if pygame.mouse.get_pressed()[0] == 1 and self.return_clicked == False:
+				self.return_clicked = True
+				print('返回被点击')
+
+		if self.again_btn[1].collidepoint(pos):
+			if pygame.mouse.get_pressed()[0] == 1 and self.again_clicked == False:
+				self.again_clicked = True
+				print('重来被点击')
+
+		if pygame.mouse.get_pressed()[0] == 0:
+			self.return_clicked = False
+			self.again_clicked = False
 
 class Mode:
 
@@ -142,7 +198,7 @@ class Mode:
 
 		# 排行榜
 		if types == MODE_RANK:
-			self.txt = '排行榜kk'
+			self.txt = '排行榜'
 
 # 游戏按钮
 class Button:
@@ -297,10 +353,15 @@ class Block:
 		self.speed = 45
 		self.limit = 0
 
+		# 失败重复次数
+		self.repeat = 0
+
 		# 点击的色块
 		self.w = 0
 		self.h = 0
 		self.front_color = None
+
+		self.once = False
 
 	def get_color(self, types):
 		# -1 代表红色(失败)
@@ -324,9 +385,27 @@ class Block:
 			self.color = GREY
 			self.txt = True
 
-	def draw(self, clicked):
-		# 绘制色块
-		pygame.draw.rect(screen, self.color, self.rect)
+	def draw(self, clicked, game):
+
+		global step
+
+		if self.color != RED:
+			# 绘制色块
+			pygame.draw.rect(screen, self.color, self.rect)
+
+		# 失败 红色色块会重复三次 (红-白)
+		else:
+			colors = [RED, WHITE]
+			if self.repeat < 180:
+				pygame.draw.rect(screen, colors[self.repeat//30%2], self.rect)
+				self.repeat += 4
+			else:
+
+				if not self.once:
+					step = -1
+					self.once = True
+
+
 
 		# 正确点击的时候 变成灰白 面积会慢慢变大
 		if self.front_color:
@@ -384,6 +463,11 @@ class Game:
 
 		# 倒计时
 		self.time = None
+
+		#
+		self.str_time = None
+
+		self.prompt = Prompt('经典', self.time)
 
 	# 生成最初砖块
 	def init_block(self):
@@ -453,6 +537,9 @@ class Game:
 		# 绘制砖块
 		if step == 1:
 			self.draw_blocks()
+		elif step == -1:
+			self.prompt.draw()
+			self.prompt.update()
 
 		# 绘制按钮
 		self.draw_buttons()
@@ -476,7 +563,7 @@ class Game:
 	def draw_blocks(self):
 
 		for b in self.blocks:
-			b.draw(self.time)
+			b.draw(self.time, self)
 
 		# 倒计时
 		counter = '0.000"'
@@ -487,10 +574,12 @@ class Game:
 
 			counter = '{:.3f}'.format(round((now-self.time)/1000, 3)) + '"'
 
+			self.str_time = counter
+
 		# 绘制倒计时
 		draw_text(
 			counter,
-			yahei50,
+			yahei50_bold,
 			RED,
 			WIDTH//2,
 			50,
@@ -500,12 +589,15 @@ class Game:
 	# 更新
 	def update(self):
 
-		# 处理点击
-		pos = self.click()
+		if game_over == 0:
+			# 处理点击
+			pos = self.click()
 
 
 
 	def click(self):
+
+		global game_over
 
 		# 获取鼠标位置
 		pos = pygame.mouse.get_pos()
@@ -518,7 +610,6 @@ class Game:
 		if pygame.mouse.get_pressed()[0] == 1 and self.clicked == False:
 
 			self.clicked = True
-
 
 			for block in self.blocks:
 
@@ -536,10 +627,13 @@ class Game:
 						if block.color == GREY:
 							shot_fx.play()
 							block.get_color(2)
+							for block in self.blocks:
+								block.move = True
 						else:
 							block.get_color(-1)
+							game_over = True
+							self.prompt.time = self.str_time
 
-					block.move = True
 
 		for block in self.blocks:
 
@@ -559,7 +653,7 @@ class Game:
 				if x // 100 == i:
 					block = Block(BLOCKS_TYPE_CLICKABLE, x, -225)
 				else:
-					block = Block(BLOCKS_TYPE_COMMON, x, -225)
+					block = Block(BLOCKS_TYPE_COMMON,    x, -225)
 
 				self.blocks.append(block)
 
@@ -617,8 +711,7 @@ game = Game()
 game.init_block()
 game.init_buttons()
 
-# 0 选择 1 游戏
-step = 0
+
 
 while run:
 
