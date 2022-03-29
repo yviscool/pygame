@@ -3,6 +3,7 @@
 '''
 import pygame
 import random
+import time
 
 # 初始化
 pygame.init()
@@ -31,9 +32,8 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
 # 游戏执行条件
 run = True
-# 游戏结束  0 进行  1 胜利  -1 失败
-game_over = 0
-# 0 选择 1 游戏
+
+# -2 失败 -1 游戏失败中  0 选择  1 游戏开始  2 游戏进行  3 胜利
 step = 0
 
 # 常量
@@ -63,6 +63,7 @@ BLOCKS_TYPE_CLICKABLE = 1
 BLOCKS_TYPE_CLICKED   = 2
 BLOCKS_TYPE_GOLD      = 3
 BLOCKS_TYPE_START     = 4
+
 # -1 代表红色(失败)
 # 0 代表白色(不可点击-否则失败)\
 # 1 代表灰色(可点击)
@@ -70,10 +71,10 @@ BLOCKS_TYPE_START     = 4
 # 3 代表黄色 (游戏开始的最后一排)
 # 4 代表开始的色块
 markers = [
-	[0, 0, 0, 0, 3],
-	[0, 0, 0, 0, 3],
-	[0, 0, 0, 0, 3],
-	[0, 0, 0, 0, 3],
+	[0, 0, 0, 0, BLOCKS_TYPE_GOLD],
+	[0, 0, 0, 0, BLOCKS_TYPE_GOLD],
+	[0, 0, 0, 0, BLOCKS_TYPE_GOLD],
+	[0, 0, 0, 0, BLOCKS_TYPE_GOLD],
 ]
 
 # [
@@ -156,21 +157,29 @@ class Prompt:
 
 	def update(self):
 
+		global step
+
 		pos = pygame.mouse.get_pos()
-
-		if self.return_btn[1].collidepoint(pos):
-			if pygame.mouse.get_pressed()[0] == 1 and self.return_clicked == False:
-				self.return_clicked = True
-				print('返回被点击')
-
-		if self.again_btn[1].collidepoint(pos):
-			if pygame.mouse.get_pressed()[0] == 1 and self.again_clicked == False:
-				self.again_clicked = True
-				print('重来被点击')
 
 		if pygame.mouse.get_pressed()[0] == 0:
 			self.return_clicked = False
 			self.again_clicked = False
+
+		if self.return_btn[1].collidepoint(pos):
+			if pygame.mouse.get_pressed()[0] == 1 and self.return_clicked == False:
+				self.return_clicked = True
+
+				step = 0
+				game.init()
+				game.init_block()
+				game.init_buttons()
+
+
+		if self.again_btn[1].collidepoint(pos):
+			if pygame.mouse.get_pressed()[0] == 1 and self.again_clicked == False:
+				self.again_clicked = True
+
+
 
 class Mode:
 
@@ -211,6 +220,8 @@ class Button:
 		self.w = w
 		self.h = h
 
+		self.time  = pygame.time.get_ticks()
+
 		if types == 1:
 			self.txt = '经典'
 			self.start = 100
@@ -240,7 +251,6 @@ class Button:
 		self.block_color = color_lst[ (types-1) % 2 ]
 		self.txt_color   = color_lst[ types     % 2 ]
 
-		self.time  = pygame.time.get_ticks()
 
 		self.speed = 10
 
@@ -250,6 +260,8 @@ class Button:
 			self.direction = -1 # 向左
 
 		self.reverse = False # 动画是否反转 , 选择和开始的时候
+
+		self.clicked = False
 
 	def draw(self):
 
@@ -267,15 +279,14 @@ class Button:
 		)
 
 	def update(self):
-
 		self.move()
-		self.click()
+		# self.click()
 
 	def move(self):
 
-		now = pygame.time.get_ticks()
-
 		if self.speed:
+
+			now = pygame.time.get_ticks()
 
 			if now - self.time > self.start:
 
@@ -318,6 +329,7 @@ class Button:
 
 		# 鼠标左键按下的时候
 		if pygame.mouse.get_pressed()[0] == 1 and self.clicked == False:
+
 			self.clicked = True
 
 			self.time = pygame.time.get_ticks()
@@ -332,11 +344,10 @@ class Button:
 			else:
 				self.start = 800
 
-			step = 1
-
 			if self.rect.x // self.w == pos[0] // self.w \
 				and self.rect.y // self.h == pos[1] // self.h:
-				print('点击了')
+				step = 1
+				print(self.txt, '被点击了')
 
 # 游戏色块
 class Block:
@@ -385,7 +396,7 @@ class Block:
 			self.color = GREY
 			self.txt = True
 
-	def draw(self, clicked, game):
+	def draw(self, clicked):
 
 		global step
 
@@ -400,11 +411,9 @@ class Block:
 				pygame.draw.rect(screen, colors[self.repeat//30%2], self.rect)
 				self.repeat += 4
 			else:
-
 				if not self.once:
-					step = -1
+					step = -2
 					self.once = True
-
 
 
 		# 正确点击的时候 变成灰白 面积会慢慢变大
@@ -425,7 +434,7 @@ class Block:
 		pygame.draw.rect(screen, BLACK, self.rect, BORDER)
 
 		# 开始按钮
-		if not clicked and self.txt:
+		if step == 1 and self.txt:
 			draw_text(
 				'开始',
 				yahei44,
@@ -434,9 +443,6 @@ class Block:
 				self.rect.y + 112,
 				True
 			)
-
-		if clicked and self.txt:
-			self.txt = None
 
 	def update(self):
 
@@ -455,6 +461,10 @@ class Game:
 
 	def __init__(self):
 
+		self.init()
+
+
+	def init(self):
 		self.blocks = []
 		self.buttons = []
 
@@ -463,7 +473,6 @@ class Game:
 
 		# 倒计时
 		self.time = None
-
 		#
 		self.str_time = None
 
@@ -471,6 +480,7 @@ class Game:
 
 	# 生成最初砖块
 	def init_block(self):
+
 		# 随机产生色块
 		# markers = [
 		# 	[0, 0, 0, 0, 3],
@@ -479,6 +489,13 @@ class Game:
 		# 	[0, 0, 0, 0, 3],
 		# ]
 		#   0   1  2  3  4
+
+		markers = [
+			[0, 0, 0, 0, BLOCKS_TYPE_GOLD],
+			[0, 0, 0, 0, BLOCKS_TYPE_GOLD],
+			[0, 0, 0, 0, BLOCKS_TYPE_GOLD],
+			[0, 0, 0, 0, BLOCKS_TYPE_GOLD],
+		]
 
 		W = WIDTH  // 4
 		H = HEIGHT // 4
@@ -534,10 +551,10 @@ class Game:
 		# 绘制背景
 		self.draw_background()
 
-		# 绘制砖块
-		if step == 1:
+		# 绘制砖块  (游戏进行和游戏失败中都应该是绘制砖块的的)
+		if step in (1, 2, 3, -1):
 			self.draw_blocks()
-		elif step == -1:
+		elif step == -2:
 			self.prompt.draw()
 			self.prompt.update()
 
@@ -548,6 +565,7 @@ class Game:
 	# 绘制背景
 	def draw_background(self):
 
+		# 选择 黑色的
 		if step == 0:
 			screen.fill(BLACK)
 		else:
@@ -557,24 +575,24 @@ class Game:
 	def draw_buttons(self):
 		for b in self.buttons:
 			b.draw()
-			b.update()
 
 	# 绘制砖块
 	def draw_blocks(self):
 
 		for b in self.blocks:
-			b.draw(self.time, self)
+			b.draw(self.time)
 
-		# 倒计时
-		counter = '0.000"'
-
-		if self.time:
-
+		# 游戏开始
+		if step == 1:
+			counter = '0.000"'
+		# 游戏进行
+		elif step == 2:
 			now = pygame.time.get_ticks()
-
 			counter = '{:.3f}'.format(round((now-self.time)/1000, 3)) + '"'
-
 			self.str_time = counter
+		else:
+			counter = self.str_time
+
 
 		# 绘制倒计时
 		draw_text(
@@ -589,15 +607,46 @@ class Game:
 	# 更新
 	def update(self):
 
-		if game_over == 0:
-			# 处理点击
-			pos = self.click()
+		if step in (1, 2):
+			self.click_blocks()
+
+		# if step == 0:
+		# 	self.click_buttons()
 
 
+		for b in self.buttons:
+			b.update()
 
-	def click(self):
 
-		global game_over
+	def click_buttons(self):
+
+		global step
+
+		# 获取鼠标位置
+		pos = pygame.mouse.get_pos()
+
+		for button in self.buttons:
+
+			button.time = pygame.time.get_ticks()
+			button.speed = 10
+			button.reverse = True
+
+			if button.types in [1,4]:
+				button.start = 100
+			elif button.types in [2, 5]:
+				button.start = 500
+			else:
+				button.start = 800
+
+			if button.rect.x // button.w == pos[0] // button.w \
+				and button.rect.y // button.h == pos[1] // button.h:
+				step = 1
+				print(button.txt, '被点击了')
+
+
+	def click_blocks(self):
+
+		global step
 
 		# 获取鼠标位置
 		pos = pygame.mouse.get_pos()
@@ -616,9 +665,12 @@ class Game:
 				# 判断是否被点击了，是的话 全部都要移动
 				if pos[1] // 225 == 2:
 
-					# 倒计时条件
-					if not self.time:
+					# 从游行开始变成 -- 游戏进行
+					if step == 1:
+						# 游戏开始时间
 						self.time = pygame.time.get_ticks()
+						# 游戏进行
+						step = 2
 
 					# 判断哪个块是否被点击了
 					if block.rect.x // 160  == pos[0] // 160 \
@@ -631,8 +683,10 @@ class Game:
 								block.move = True
 						else:
 							block.get_color(-1)
-							game_over = True
 							self.prompt.time = self.str_time
+							# 失败中..., 等待红色闪烁三次后 变为失败
+							step = -1
+
 
 
 		for block in self.blocks:
@@ -659,53 +713,6 @@ class Game:
 
 
 
-	def update_block(self, pos):
-
-
-		if not self.time:
-			self.time = pygame.time.get_ticks()
-
-		for block in self.blocks:
-
-			# 判断是否被点击了，是的话 全部都要移动
-			if pos[1] // 225 == 2:
-
-				# 判断哪个块是否被点击了
-				if block.rect.x // 160  == pos[0] // 160 \
-					and block.rect.y // 225 == pos[1] // 225:
-
-					if block.color == GREY:
-						shot_fx.play()
-						block.get_color(2)
-					else:
-						block.get_color(-1)
-
-				block.move = True
-
-		for block in self.blocks:
-
-			block.update()
-
-			# 越界判断
-			for block in self.blocks:
-				if block.rect.y > HEIGHT - 10:
-					self.blocks.remove(block)
-
-			# 当最后一排色块被移除时候, 要补充最前面的砖块
-			if len(self.blocks) < 20:
-
-				i = random.choice([0, 1, 3, 4])
-
-				for x in range(0, 640, 160):
-					# 0 160 320 480
-					if x // 100 == i:
-						block = Block(BLOCKS_TYPE_CLICKABLE, x, -225)
-					else:
-						block = Block(BLOCKS_TYPE_COMMON, x, -225)
-
-					self.blocks.append(block)
-
-
 game = Game()
 
 game.init_block()
@@ -724,8 +731,12 @@ while run:
 
 		if event.type == pygame.QUIT:
 			run = False
+		elif event.type == pygame.MOUSEBUTTONDOWN:
+			if event.button == 1:
+				if step == 0:
+					game.click_buttons()
 
-		if event.type == pygame.KEYDOWN:
+		elif event.type == pygame.KEYDOWN:
 			if event.key == pygame.K_1:
 				shot_fx.play()
 
