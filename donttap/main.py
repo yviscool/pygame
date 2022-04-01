@@ -3,7 +3,6 @@
 '''
 import pygame
 import random
-import time
 
 # 初始化
 pygame.init()
@@ -38,7 +37,7 @@ step = 0
 
 # 常量
 # 边框长度
-BORDER = 1
+BORDER 	   = 1
 
 # 颜色
 BLACK      = (0, 0, 0)
@@ -76,7 +75,6 @@ markers = [
 	[0, 0, 0, 0, BLOCKS_TYPE_GOLD],
 	[0, 0, 0, 0, BLOCKS_TYPE_GOLD],
 ]
-
 # [
 # 	[经典,街机(竞技)],
 # 	[禅,极速],
@@ -90,10 +88,10 @@ select_markers = [
 ]
 
 # 微软雅黑粗体 44 大小
-yahei44       = pygame.font.SysFont('microsoftjhengheiui', 44, bold=True)
-yahei50_bold  = pygame.font.SysFont('microsoftjhengheiui', 50, bold=True)
-yahei60_bold  = pygame.font.SysFont('microsoftjhengheiui', 60, bold=True)
-yahei80_bold  = pygame.font.SysFont('microsoftjhengheiui', 80, bold=True)
+yahei44       = pygame.font.SysFont('microsoftjhengheiui', 44,  bold=True)
+yahei50_bold  = pygame.font.SysFont('microsoftjhengheiui', 50,  bold=True)
+yahei60_bold  = pygame.font.SysFont('microsoftjhengheiui', 60,  bold=True)
+yahei80_bold  = pygame.font.SysFont('microsoftjhengheiui', 80,  bold=True)
 yahei100_bold = pygame.font.SysFont('microsoftjhengheiui', 100, bold=True)
 
 # print(pygame.font.get_fonts())
@@ -168,7 +166,7 @@ class Prompt:
 		if self.return_btn[1].collidepoint(pos):
 			if pygame.mouse.get_pressed()[0] == 1 and self.return_clicked == False:
 				self.return_clicked = True
-
+				# 重新选择
 				step = 0
 				game.init()
 				game.init_block()
@@ -178,8 +176,15 @@ class Prompt:
 		if self.again_btn[1].collidepoint(pos):
 			if pygame.mouse.get_pressed()[0] == 1 and self.again_clicked == False:
 				self.again_clicked = True
+				# 游戏开始
+				step = 1
+				game.blocks = []
+				game.clicked = False
+				game.time = None
+				game.str_time = None
+				game.prompt = Prompt('经典', self.time)
 
-
+				game.init_block()
 
 class Mode:
 
@@ -396,6 +401,7 @@ class Block:
 			self.color = GREY
 			self.txt = True
 
+
 	def draw(self, clicked):
 
 		global step
@@ -561,7 +567,6 @@ class Game:
 		# 绘制按钮
 		self.draw_buttons()
 
-
 	# 绘制背景
 	def draw_background(self):
 
@@ -593,7 +598,6 @@ class Game:
 		else:
 			counter = self.str_time
 
-
 		# 绘制倒计时
 		draw_text(
 			counter,
@@ -613,11 +617,10 @@ class Game:
 		# if step == 0:
 		# 	self.click_buttons()
 
-
 		for b in self.buttons:
 			b.update()
 
-
+	# 点击按钮
 	def click_buttons(self):
 
 		global step
@@ -643,7 +646,7 @@ class Game:
 				step = 1
 				print(button.txt, '被点击了')
 
-
+	# 点击砖块
 	def click_blocks(self):
 
 		global step
@@ -710,7 +713,6 @@ class Game:
 					block = Block(BLOCKS_TYPE_COMMON,    x, -225)
 
 				self.blocks.append(block)
-
 
 
 game = Game()
